@@ -1,0 +1,47 @@
+#!/bin/bash
+
+. env.sh
+
+: ${TIMEOUT=2}
+: ${IP_ADDRESS=$(hostname -I | awk '{split($0, a, " "); print a[1]}')}
+: ${ADVERTISED_LISTENERS="PLAINTEXT://$IP_ADDRESS:9092"}
+
+docker run -d --name zookeeper -p 2181:2181 zookeeper
+sleep $TIMEOUT
+docker run -d --name kafka --link zookeeper:zookeeper -p 9092:9092 -e ADVERTISED_LISTENERS="$ADVERTISED_LISTENERS" kafka
+sleep $TIMEOUT
+docker run -d --name cassandra -e CASSANDRA_DC=dc1 -e CASSANDRA_ENDPOINT_SNITCH="GossipingPropertyFileSnitch" -e CASSANDRA_LOMEM="true" -p 9042:9042 cassandra
+sleep $TIMEOUT
+docker run -d --name spark-server -p 8080:8080 spark-server
+sleep $TIMEOUT
+docker run -d --name spark-node-01 --link spark-server:spark --link cassandra:cassandra --link kafka:kafka -e CASSANDRA_DC=dc2 -e CASSANDRA_ENDPOINT_SNITCH="GossipingPropertyFileSnitch" -e CASSANDRA_LOMEM="true" spark-cassandra-node
+sleep $TIMEOUT
+docker run -d --name zeppelin --link cassandra:cassandra --link spark-server:spark -e SPARK_SUBMIT_OPTIONS="--packages datastax:spark-cassandra-connector:2.0.1-s_2.11" -p 8088:8080 zeppelin
+sleep $TIMEOUT
+docker run -d --name service-stream-processing \
+	--link spark-server:spark \
+	--link kafka:kafka \
+	--link spark-node-01:cassandra \
+	service-stream-processing
+sleep $TIMEOUT
+sleep $TIMEOUT
+docker run -d --name svc-sent-lab \
+	--link kafka:kafka \
+	-e TWITTER_CLIENT_ID="$TWITTER_CLIENT_ID" \
+	-e TWITTER_CLIENT_SECRET="$TWITTER_CLIENT_SECRET" \
+	-e TWITTER_ACCESS_TOKEN="$TWITTER_ACCESS_TOKEN" \
+	-e TWITTER_ACCESS_TOKEN_SECRET="$TWITTER_ACCESS_TOKEN_SECRET" \
+	-e TWITTER_KEYWORDS="labour" \
+	service-sentiment
+docker run -d --name svc-sent-con \
+        --link kafka:kafka \
+        -e TWITTER_CLIENT_ID="$TWITTER_CLIENT_ID" \
+        -e TWITTER_CLIENT_SECRET="$TWITTER_CLIENT_SECRET" \
+        -e TWITTER_ACCESS_TOKEN="$TWITTER_ACCESS_TOKEN" \
+        -e TWITTER_ACCESS_TOKEN_SECRET="$TWITTER_ACCESS_TOKEN_SECRET" \
+        -e TWITTER_KEYWORDS="conservative" \
+        service-sentiment
+sleep $TIMEOUT
+sleep $TIMEOUT
+docker run -d --name service-rest --link cassandra:cassandra -p 5000:5000 service-rest
+

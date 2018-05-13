@@ -1,0 +1,5 @@
+#!/bin/bash
+
+docker kill zookeeper kafka cassandra spark-server spark-node-01 zeppelin
+docker rm zookeeper kafka cassandra spark-server spark-node-01 zeppelin
+

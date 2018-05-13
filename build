@@ -1,0 +1,13 @@
+#!/bin/sh
+
+docker build -t zookeeper zookeeper/
+docker build -t kafka kafka/
+docker build -t cassandra cassandra/
+docker build -t spark spark/
+docker build -t spark-server spark-server/
+docker build -t spark-node spark-node/
+docker build -t spark-cassandra-node spark-cassandra-node/
+docker build -t zeppelin zeppelin/
+docker build -t service-sentiment services/twitter-sentiment/
+docker build -t service-rest services/rest-api/
+docker build -t service-stream-processing services/stream-processing/
